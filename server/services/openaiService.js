@@ -1,14 +1,29 @@
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-dotenv.config();
+// Fix ES module __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load environment variables from the correct path
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
 class OpenAIService {
   constructor() {
+    // Debug environment variables
+    console.log('🔍 Environment Variables Debug:');
+    console.log('OPENROUTER_API_KEY:', process.env.OPENROUTER_API_KEY ? `${process.env.OPENROUTER_API_KEY.substring(0, 20)}...` : 'NOT SET');
+    console.log('OPENROUTER_BASE_URL:', process.env.OPENROUTER_BASE_URL || 'NOT SET');
+    console.log('OPENROUTER_MODEL:', process.env.OPENROUTER_MODEL || 'NOT SET');
+    
     // Check if we have OpenRouter configuration
     const hasOpenRouterConfig = process.env.OPENROUTER_API_KEY && 
                                 process.env.OPENROUTER_BASE_URL && 
                                 process.env.OPENROUTER_MODEL;
+    
+    console.log('🎯 Has OpenRouter Config:', hasOpenRouterConfig);
     
     if (hasOpenRouterConfig) {
       // Configure for OpenRouter
@@ -22,7 +37,7 @@ class OpenAIService {
       });
       this.model = process.env.OPENROUTER_MODEL;
       this.isDemoMode = false;
-      console.log('OpenRouter API configured with model:', this.model);
+      console.log('✅ OpenRouter API configured with model:', this.model);
     } else {
       // Fallback to demo mode
       this.openai = new OpenAI({
@@ -30,7 +45,7 @@ class OpenAIService {
       });
       this.model = 'gpt-4o-mini';
       this.isDemoMode = true;
-      console.log('Running in demo mode - no valid API configuration found');
+      console.log('⚠️ Running in demo mode - no valid API configuration found');
     }
   }
 

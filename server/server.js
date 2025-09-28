@@ -2,13 +2,27 @@ import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import authRoutes from './routes/auth.js';
 import processRoutes from './routes/process.js';
 import simulationRoutes from './routes/simulation.js';
 import reportsRoutes from './routes/reports.js';
 import chatbotRoutes from './routes/chatbot.js';
 
-dotenv.config();
+// Fix ES module __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load environment variables
+dotenv.config({ path: path.join(__dirname, '.env') });
+
+console.log('🚀 Starting LCA Server...');
+console.log('🔍 Environment check:');
+console.log('PORT:', process.env.PORT || '5000');
+console.log('NODE_ENV:', process.env.NODE_ENV || 'not set');
+console.log('MONGODB_URI:', process.env.MONGODB_URI ? 'configured' : 'not set');
+console.log('OPENROUTER_API_KEY:', process.env.OPENROUTER_API_KEY ? 'configured' : 'not set');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
