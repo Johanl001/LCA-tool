@@ -62,3 +62,13 @@ pids
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# API Keys and Secrets (NEVER COMMIT THESE)
+api.txt
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/
+keys/
+*.secret
