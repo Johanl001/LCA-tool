@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTheme, getThemeColors } from '../contexts/ThemeContext';
 import { 
   BarChart3, 
   TrendingUp, 
@@ -47,6 +48,8 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ user }) => {
+  const { theme } = useTheme();
+  const colors = getThemeColors(theme);
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -96,7 +99,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     const avgScore = projectsData.reduce((sum, p) => sum + (p.sustainabilityScore || 0), 0) / projectsData.length;
     const bestCircular = Math.max(...projectsData.map(p => p.circularScore || 0));
     const totalEnergy = projectsData.reduce((sum, p) => {
-      return sum + p.stages.reduce((stageSum: number, stage: any) => stageSum + (stage.energyUsage || 0), 0);
+      return sum + (p.stages?.reduce((stageSum: number, stage: any) => stageSum + (stage.energyUsage || 0), 0) || 0);
     }, 0);
 
     setStats({
@@ -107,6 +110,31 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     });
   };
 
+  // Generate theme-aware chart colors
+  const getChartColors = () => {
+    if (theme === 'sunset') {
+      return {
+        primary: 'rgba(243, 126, 32, 0.8)',
+        primaryBorder: 'rgba(243, 126, 32, 1)',
+        secondary: 'rgba(232, 111, 71, 0.8)',
+        secondaryBorder: 'rgba(232, 111, 71, 1)',
+        accent: 'rgba(245, 158, 11, 0.8)',
+        accentBorder: 'rgba(245, 158, 11, 1)'
+      };
+    } else {
+      return {
+        primary: 'rgba(14, 165, 233, 0.8)',
+        primaryBorder: 'rgba(14, 165, 233, 1)',
+        secondary: 'rgba(34, 197, 94, 0.8)',
+        secondaryBorder: 'rgba(34, 197, 94, 1)',
+        accent: 'rgba(210, 109, 75, 0.8)',
+        accentBorder: 'rgba(210, 109, 75, 1)'
+      };
+    }
+  };
+
+  const chartColors = getChartColors();
+
   // Chart data
   const recentProjects = projects.slice(0, 6).reverse();
   
@@ -116,16 +144,16 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       {
         label: 'Sustainability Score',
         data: recentProjects.map(p => p.sustainabilityScore || 0),
-        borderColor: 'rgb(16, 185, 129)',
-        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        borderColor: chartColors.primaryBorder,
+        backgroundColor: chartColors.primary.replace('0.8', '0.1'),
         tension: 0.3,
         fill: true
       },
       {
         label: 'Circular Score',
         data: recentProjects.map(p => p.circularScore || 0),
-        borderColor: 'rgb(59, 130, 246)',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        borderColor: chartColors.secondaryBorder,
+        backgroundColor: chartColors.secondary.replace('0.8', '0.1'),
         tension: 0.3
       }
     ]
@@ -137,19 +165,19 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       {
         label: 'Energy Usage (GJ)',
         data: recentProjects.map(p => 
-          p.stages.reduce((sum: number, stage: any) => sum + (stage.energyUsage || 0), 0)
+          p.stages?.reduce((sum: number, stage: any) => sum + (stage.energyUsage || 0), 0) || 0
         ),
-        backgroundColor: 'rgba(251, 146, 60, 0.8)',
-        borderColor: 'rgba(251, 146, 60, 1)',
+        backgroundColor: chartColors.primary,
+        borderColor: chartColors.primaryBorder,
         borderWidth: 1
       },
       {
         label: 'Water Usage (m³)',
         data: recentProjects.map(p => 
-          p.stages.reduce((sum: number, stage: any) => sum + (stage.waterUsage || 0), 0)
+          p.stages?.reduce((sum: number, stage: any) => sum + (stage.waterUsage || 0), 0) || 0
         ),
-        backgroundColor: 'rgba(14, 165, 233, 0.8)',
-        borderColor: 'rgba(14, 165, 233, 1)',
+        backgroundColor: chartColors.secondary,
+        borderColor: chartColors.secondaryBorder,
         borderWidth: 1
       }
     ]
@@ -161,14 +189,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       {
         data: [35, 45, 20],
         backgroundColor: [
-          'rgba(16, 185, 129, 0.8)',
-          'rgba(239, 68, 68, 0.8)',
-          'rgba(156, 163, 175, 0.8)'
+          chartColors.secondary,
+          chartColors.primary,
+          chartColors.accent
         ],
         borderColor: [
-          'rgba(16, 185, 129, 1)',
-          'rgba(239, 68, 68, 1)',
-          'rgba(156, 163, 175, 1)'
+          chartColors.secondaryBorder,
+          chartColors.primaryBorder,
+          chartColors.accentBorder
         ],
         borderWidth: 2
       }
@@ -180,28 +208,28 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       title: 'Total Projects',
       value: stats.totalProjects,
       icon: BarChart3,
-      color: 'bg-blue-500',
+      color: theme === 'sunset' ? 'bg-sunset-500' : 'bg-adventure-500',
       change: '+12%'
     },
     {
       title: 'Avg Sustainability Score',
       value: `${stats.avgSustainabilityScore}%`,
       icon: Leaf,
-      color: 'bg-green-500',
+      color: theme === 'sunset' ? 'bg-sunsetRed-500' : 'bg-adventureGreen-500',
       change: '+5.2%'
     },
     {
       title: 'Energy Reduction Potential',
       value: `${stats.totalEnergyReduction} GJ`,
       icon: Zap,
-      color: 'bg-orange-500',
+      color: theme === 'sunset' ? 'bg-sunsetGold-500' : 'bg-adventureBrown-500',
       change: '+18%'
     },
     {
       title: 'Best Circular Score',
       value: `${stats.bestCircularScore}%`,
       icon: TrendingUp,
-      color: 'bg-purple-500',
+      color: theme === 'sunset' ? 'bg-sunset-600' : 'bg-adventure-600',
       change: '+8.1%'
     }
   ];
@@ -210,7 +238,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     return (
       <div className="p-8">
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+          <div className={`animate-spin rounded-full h-12 w-12 border-b-2 ${theme === 'sunset' ? 'border-sunset-600' : 'border-adventure-600'}`}></div>
         </div>
       </div>
     );
@@ -242,7 +270,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                   <p className="text-sm font-medium text-gray-600 mb-1">{stat.title}</p>
                   <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
                   <div className="flex items-center mt-2">
-                    <span className="text-green-600 text-sm font-medium">{stat.change}</span>
+                    <span className={`${colors.textSecondary} text-sm font-medium`}>{stat.change}</span>
                     <span className="text-gray-500 text-sm ml-1">from last month</span>
                   </div>
                 </div>
@@ -256,62 +284,64 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       </div>
 
       {/* Charts Section */}
-     {/* Sustainability Trends */}
-<div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-  <h3 className="text-lg font-semibold text-gray-900 mb-4">
-    Sustainability Trends
-  </h3>
-  <div className="h-80"> {/* Fixed height */}
-    {recentProjects.length > 0 ? (
-      <Line
-        data={lineChartData}
-        options={{
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            y: {
-              beginAtZero: true,
-              max: 100,
-            },
-          },
-        }}
-      />
-    ) : (
-      <div className="h-full flex items-center justify-center text-gray-500">
-        No data available. Create your first project to see trends.
-      </div>
-    )}
-  </div>
-</div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        {/* Sustainability Trends */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            Sustainability Trends
+          </h3>
+          <div className="h-80">
+            {recentProjects.length > 0 ? (
+              <Line
+                data={lineChartData}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      max: 100,
+                    },
+                  },
+                }}
+              />
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-500">
+                No data available. Create your first project to see trends.
+              </div>
+            )}
+          </div>
+        </div>
 
-{/* Resource Usage */}
-<div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-  <h3 className="text-lg font-semibold text-gray-900 mb-4">
-    Resource Usage by Project
-  </h3>
-  <div className="h-80"> {/* Fixed height */}
-    {recentProjects.length > 0 ? (
-      <Bar
-        data={barChartData}
-        options={{
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            y: {
-              beginAtZero: true,
-            },
-          },
-        }}
-      />
-    ) : (
-      <div className="h-full flex items-center justify-center text-gray-500">
-        No data available. Create your first project to see usage.
+        {/* Resource Usage */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            Resource Usage by Project
+          </h3>
+          <div className="h-80">
+            {recentProjects.length > 0 ? (
+              <Bar
+                data={barChartData}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                    },
+                  },
+                }}
+              />
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-500">
+                No data available. Create your first project to see usage.
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-    )}
-  </div>
-</div>
 
-   {/* Bottom Section */}
+      {/* Bottom Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Energy Sources */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -346,7 +376,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-medium text-green-600">
+                  <p className={`text-sm font-medium ${colors.textSecondary}`}>
                     {project.sustainabilityScore || 0}%
                   </p>
                   <p className="text-xs text-gray-500">Score</p>
@@ -357,7 +387,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
               <div className="text-center py-8">
                 <Activity className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                 <p className="text-gray-500 mb-4">No projects yet</p>
-                <button className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors">
+                <button className={`inline-flex items-center px-4 py-2 ${theme === 'sunset' ? 'bg-sunset-600 hover:bg-sunset-700' : 'bg-adventure-600 hover:bg-adventure-700'} text-white text-sm font-medium rounded-lg transition-colors`}>
                   <Plus className="h-4 w-4 mr-2" />
                   Create Project
                 </button>
@@ -372,24 +402,17 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             Quick Actions
           </h3>
           <div className="space-y-3">
-            <button className="w-full flex items-center p-3 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
-              <Plus className="h-5 w-5 text-green-600 mr-3" />
-              <span className="text-green-700 font-medium">Submit New Process Data</span>
+            <button className={`w-full flex items-center p-3 ${theme === 'sunset' ? 'bg-sunset-50 text-sunset-700 hover:bg-sunset-100' : 'bg-adventure-50 text-adventure-700 hover:bg-adventure-100'} rounded-lg transition-colors`}>
+              <Plus className="h-5 w-5 mr-3" />
+              New LCA Project
             </button>
-            
-            <button className="w-full flex items-center p-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
-              <Activity className="h-5 w-5 text-blue-600 mr-3" />
-              <span className="text-blue-700 font-medium">Run Scenario Simulation</span>
+            <button className={`w-full flex items-center p-3 ${theme === 'sunset' ? 'bg-sunsetRed-50 text-sunsetRed-700 hover:bg-sunsetRed-100' : 'bg-adventureGreen-50 text-adventureGreen-700 hover:bg-adventureGreen-100'} rounded-lg transition-colors`}>
+              <BarChart3 className="h-5 w-5 mr-3" />
+              View Reports
             </button>
-            
-            <button className="w-full flex items-center p-3 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors">
-              <BarChart3 className="h-5 w-5 text-purple-600 mr-3" />
-              <span className="text-purple-700 font-medium">Generate Report</span>
-            </button>
-            
-            <button className="w-full flex items-center p-3 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors">
-              <TrendingUp className="h-5 w-5 text-orange-600 mr-3" />
-              <span className="text-orange-700 font-medium">Compare Projects</span>
+            <button className={`w-full flex items-center p-3 ${theme === 'sunset' ? 'bg-sunsetGold-50 text-sunsetGold-700 hover:bg-sunsetGold-100' : 'bg-adventureBrown-50 text-adventureBrown-700 hover:bg-adventureBrown-100'} rounded-lg transition-colors`}>
+              <Activity className="h-5 w-5 mr-3" />
+              Run Simulation
             </button>
           </div>
         </div>

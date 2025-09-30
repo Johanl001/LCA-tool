@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ThemeProvider } from './contexts/ThemeContext';
 import Navbar from './components/Navbar';
 import Dashboard from './components/Dashboard';
 import SubmitProcess from './components/SubmitProcess';
@@ -52,10 +53,10 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-sunset-50 to-sunsetRed-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading LCA Application...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sunset-600 mx-auto"></div>
+          <p className="mt-4 text-sunset-700">Loading LCA Application...</p>
         </div>
       </div>
     );
@@ -63,36 +64,39 @@ function App() {
 
   if (!user) {
     return (
-      <Router>
-        <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
-          <Routes>
-            <Route path="/login" element={<Login onLogin={handleLogin} />} />
-            <Route path="/register" element={<Register onLogin={handleLogin} />} />
-            <Route path="*" element={<Navigate to="/login" />} />
-          </Routes>
-        </div>
-      </Router>
+      <ThemeProvider>
+        <Router>
+          <div className="min-h-screen bg-gradient-to-br from-sunset-50 to-sunsetRed-50">
+            <Routes>
+              <Route path="/login" element={<Login onLogin={handleLogin} />} />
+              <Route path="/register" element={<Register onLogin={handleLogin} />} />
+              <Route path="*" element={<Navigate to="/login" />} />
+            </Routes>
+          </div>
+        </Router>
+      </ThemeProvider>
     );
   }
 
   return (
-    <Router>
-      <div className="min-h-screen bg-gray-50 flex">
-        <Navbar user={user} onLogout={handleLogout} />
-        <div className="flex-1 ml-64">
-          <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" />} />
-            <Route path="/dashboard" element={<Dashboard user={user} />} />
-            <Route path="/submit" element={<SubmitProcess user={user} />} />
-            <Route path="/simulation" element={<ScenarioSimulation user={user} />} />
-            <Route path="/insights" element={<AIInsights user={user} />} />
-            <Route path="/reports" element={<Reports user={user} />} />
-            <Route path="/compare" element={<CompareProjects user={user} />} />
-            <Route path="/profile" element={<UserProfile user={user} onLogout={handleLogout} />} />
-          </Routes>
+    <ThemeProvider>
+      <Router>
+        <div className="min-h-screen bg-gray-50 flex">
+          <Navbar user={user} onLogout={handleLogout} />
+          <div className="flex-1 ml-64">
+            <Routes>
+              <Route path="/" element={<Navigate to="/dashboard" />} />
+              <Route path="/dashboard" element={<Dashboard user={user} />} />
+              <Route path="/submit" element={<SubmitProcess user={user} />} />
+              <Route path="/simulation" element={<ScenarioSimulation user={user} />} />
+              <Route path="/insights" element={<AIInsights user={user} />} />
+              <Route path="/reports" element={<Reports user={user} />} />
+              <Route path="/compare" element={<CompareProjects user={user} />} />
+              <Route path="/profile" element={<UserProfile user={user} onLogout={handleLogout} />} />
+            </Routes>
+          </div>
         </div>
-      </div>
-     <footer className="bg-gray-100 text-gray-700 text-center py-6 mt-auto border-t border-gray-200">
+       <footer className="bg-gray-100 text-gray-700 text-center py-6 mt-auto border-t border-gray-200">
   <div className="mb-2">&copy; {new Date().getFullYear()} Team StrawHats. All rights reserved.</div>
   <div className="flex justify-center gap-4 mb-2">
     <a href="mailto:contact@team.com" className="hover:text-gray-900">strawhats@gmail.com</a>
@@ -103,7 +107,8 @@ function App() {
   <div className="mt-2 text-sm text-gray-500">v1.0.0</div>
 </footer>
 
-    </Router>
+      </Router>
+    </ThemeProvider>
   );
 }
 

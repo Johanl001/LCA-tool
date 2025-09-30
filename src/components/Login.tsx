@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTheme, getThemeColors } from '../contexts/ThemeContext';
 import { Leaf, Mail, Lock, LogIn } from 'lucide-react';
 
 interface LoginProps {
@@ -7,6 +8,8 @@ interface LoginProps {
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
+  const { theme } = useTheme();
+  const colors = getThemeColors(theme);
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -53,25 +56,22 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
-        {/* Header */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="p-3 bg-green-100 rounded-full">
-              <Leaf className="h-8 w-8 text-green-600" />
+            <div className={`p-3 ${theme === 'sunset' ? 'bg-sunset-100' : 'bg-adventure-100'} rounded-full`}>
+              <Leaf className={`h-8 w-8 ${theme === 'sunset' ? 'text-sunset-600' : 'text-adventure-600'}`} />
             </div>
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
           <p className="text-gray-600">Sign in to your LCA Platform account</p>
         </div>
 
-        {/* Error Message */}
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-600 text-sm">{error}</p>
           </div>
         )}
 
-        {/* Login Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
@@ -89,7 +89,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 required
                 value={formData.email}
                 onChange={handleChange}
-                className="pl-10 w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className={`pl-10 w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 ${theme === 'sunset' ? 'focus:ring-sunset-500' : 'focus:ring-adventure-500'} focus:border-transparent`}
                 placeholder="Enter your email"
               />
             </div>
@@ -111,7 +111,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 required
                 value={formData.password}
                 onChange={handleChange}
-                className="pl-10 w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className={`pl-10 w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 ${theme === 'sunset' ? 'focus:ring-sunset-500' : 'focus:ring-adventure-500'} focus:border-transparent`}
                 placeholder="Enter your password"
               />
             </div>
@@ -120,7 +120,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex justify-center items-center px-4 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className={`w-full flex justify-center items-center px-4 py-3 border border-transparent text-sm font-medium rounded-lg text-white ${theme === 'sunset' ? 'bg-sunset-600 hover:bg-sunset-700 focus:ring-sunset-500' : 'bg-adventure-600 hover:bg-adventure-700 focus:ring-adventure-500'} focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
           >
             {loading ? (
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
@@ -133,23 +133,21 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           </button>
         </form>
 
-        {/* Sign Up Link */}
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-600">
             Don't have an account?{' '}
             <Link
               to="/register"
-              className="font-medium text-green-600 hover:text-green-500 transition-colors"
+              className={`font-medium ${colors.textPrimary} ${theme === 'sunset' ? 'hover:text-sunset-500' : 'hover:text-adventure-500'} transition-colors`}
             >
               Sign up here
             </Link>
           </p>
         </div>
 
-        {/* Demo Info */}
-        <div className="mt-8 p-4 bg-blue-50 rounded-lg">
-          <h3 className="text-sm font-medium text-blue-900 mb-2">Demo Account</h3>
-          <p className="text-xs text-blue-700">
+        <div className={`mt-8 p-4 ${theme === 'sunset' ? 'bg-sunsetGold-50' : 'bg-adventure-50'} rounded-lg`}>
+          <h3 className={`text-sm font-medium ${theme === 'sunset' ? 'text-sunsetGold-900' : 'text-adventure-900'} mb-2`}>Demo Account</h3>
+          <p className={`text-xs ${theme === 'sunset' ? 'text-sunsetGold-700' : 'text-adventure-700'}`}>
             Email: demo@lca.com<br />
             Password: demo123
           </p>
