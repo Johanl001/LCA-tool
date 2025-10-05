@@ -84,6 +84,7 @@ const SubmitProcess: React.FC<SubmitProcessProps> = ({ user }) => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
 
   const commonStages = [
     'Mining', 'Processing', 'Smelting', 'Refining', 'Manufacturing', 
@@ -138,6 +139,16 @@ const SubmitProcess: React.FC<SubmitProcessProps> = ({ user }) => {
     newStages[index] = { ...newStages[index], [field]: value };
     setStages(newStages);
     
+    // Clear validation errors for this field
+    const errorKey = `stage_${index}_${field === 'stageName' ? 'name' : field === 'materialType' ? 'material' : field === 'energyUsage' ? 'energy' : field === 'waterUsage' ? 'water' : field === 'transportDistance' ? 'transport' : field}`;
+    if (validationErrors[errorKey]) {
+      setValidationErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[errorKey];
+        return newErrors;
+      });
+    }
+    
     // Auto-calculate totals
     calculateTotals(newStages);
   };
@@ -159,6 +170,49 @@ const SubmitProcess: React.FC<SubmitProcessProps> = ({ user }) => {
     }
   };
 
+  const validateForm = (): boolean => {
+    const errors: {[key: string]: string} = {};
+    
+    // Validate project name
+    if (!projectName.trim()) {
+      errors.projectName = 'Project name is required';
+    } else if (projectName.trim().length < 3) {
+      errors.projectName = 'Project name must be at least 3 characters long';
+    }
+    
+    // Validate stages
+    if (stages.length === 0) {
+      errors.stages = 'At least one stage is required';
+    } else {
+      stages.forEach((stage, index) => {
+        if (!stage.stageName.trim()) {
+          errors[`stage_${index}_name`] = `Stage ${index + 1} name is required`;
+        }
+        if (!stage.materialType.trim()) {
+          errors[`stage_${index}_material`] = `Stage ${index + 1} material type is required`;
+        }
+        if (stage.energyUsage < 0) {
+          errors[`stage_${index}_energy`] = `Stage ${index + 1} energy usage cannot be negative`;
+        }
+        if (stage.waterUsage < 0) {
+          errors[`stage_${index}_water`] = `Stage ${index + 1} water usage cannot be negative`;
+        }
+        if (stage.transportDistance < 0) {
+          errors[`stage_${index}_transport`] = `Stage ${index + 1} transport distance cannot be negative`;
+        }
+      });
+    }
+    
+    // Validate percentages sum to 100
+    const totalPercentage = overallData.reusePercentage + overallData.recyclePercentage + overallData.landfillPercentage;
+    if (Math.abs(totalPercentage - 100) > 1) {
+      errors.percentages = 'Reuse, recycle, and landfill percentages must sum to 100%';
+    }
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const calculateTotals = (stageData: Stage[]) => {
     const totalEnergy = stageData.reduce((sum, stage) => sum + (stage.energyUsage || 0), 0);
     const totalWater = stageData.reduce((sum, stage) => sum + (stage.waterUsage || 0), 0);
@@ -172,33 +226,81 @@ const SubmitProcess: React.FC<SubmitProcessProps> = ({ user }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    
+    // Clear previous errors
     setError('');
+    setValidationErrors({});
+    
+    // Validate form
+    if (!validateForm()) {
+      setError('Please fix the validation errors below');
+      return;
+    }
+    
+    setLoading(true);
     setSuccess(false);
 
     try {
       const token = localStorage.getItem('lca_token');
+      
+      if (!token) {
+        throw new Error('Authentication token not found. Please log in again.');
+      }
+      
+      // Validate data before sending
+      const payload = {
+        projectName: projectName.trim(),
+        overallData: {
+          ...overallData,
+          totalEnergyUsage: Number(overallData.totalEnergyUsage.toFixed(2)),
+          totalWaterUsage: Number(overallData.totalWaterUsage.toFixed(2))
+        },
+        stages: stages.map(stage => ({
+          ...stage,
+          energyUsage: Number(stage.energyUsage),
+          waterUsage: Number(stage.waterUsage),
+          transportDistance: Number(stage.transportDistance),
+          wasteGenerated: Number(stage.wasteGenerated || 0),
+          recyclingPercentage: Number(stage.recyclingPercentage || 0),
+          efficiency: Number(stage.efficiency || 85)
+        }))
+      };
+      
       const response = await fetch('http://localhost:5000/api/process/submit', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          projectName,
-          overallData,
-          stages
-        })
+        body: JSON.stringify(payload)
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to submit process data');
+        // Handle specific error types
+        if (response.status === 400 && data.validationErrors) {
+          const fieldErrors: {[key: string]: string} = {};
+          data.validationErrors.forEach((err: any) => {
+            fieldErrors[err.field] = err.message;
+          });
+          setValidationErrors(fieldErrors);
+          throw new Error(data.details || 'Validation failed');
+        }
+        
+        if (response.status === 401) {
+          // Clear invalid token
+          localStorage.removeItem('lca_token');
+          localStorage.removeItem('lca_user');
+          throw new Error('Session expired. Please log in again.');
+        }
+        
+        throw new Error(data.details || data.error || `Server error: ${response.status}`);
       }
 
       setSuccess(true);
-      // Reset form after successful submission
+      
+      // Show success message and reset form after delay
       setTimeout(() => {
         setProjectName('');
         setStages([{
@@ -227,10 +329,19 @@ const SubmitProcess: React.FC<SubmitProcessProps> = ({ user }) => {
           landfillPercentage: 100
         });
         setSuccess(false);
+        setValidationErrors({});
       }, 3000);
 
     } catch (error: any) {
-      setError(error.message || 'An error occurred while submitting');
+      console.error('Submission error:', error);
+      
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        setError('Network error: Unable to connect to server. Please check your connection and try again.');
+      } else if (error.message.includes('JSON')) {
+        setError('Server response error: Invalid data received. Please try again.');
+      } else {
+        setError(error.message || 'An unexpected error occurred while submitting your project.');
+      }
     } finally {
       setLoading(false);
     }
@@ -255,9 +366,27 @@ const SubmitProcess: React.FC<SubmitProcessProps> = ({ user }) => {
       )}
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center">
-          <AlertCircle className="h-5 w-5 text-red-600 mr-3" />
-          <span className="text-red-700">{error}</span>
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-start">
+            <AlertCircle className="h-5 w-5 text-red-600 mr-3 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <span className="text-red-700 font-medium">Error:</span>
+              <span className="text-red-700 ml-2">{error}</span>
+              {Object.keys(validationErrors).length > 0 && (
+                <div className="mt-3">
+                  <p className="text-sm text-red-600 font-medium mb-2">Validation Errors:</p>
+                  <ul className="text-sm text-red-600 space-y-1">
+                    {Object.entries(validationErrors).map(([key, message]) => (
+                      <li key={key} className="flex items-start">
+                        <span className="w-2 h-2 bg-red-400 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
+                        {message}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -275,10 +404,24 @@ const SubmitProcess: React.FC<SubmitProcessProps> = ({ user }) => {
                 type="text"
                 required
                 value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                onChange={(e) => {
+                  setProjectName(e.target.value);
+                  if (validationErrors.projectName) {
+                    setValidationErrors(prev => {
+                      const newErrors = { ...prev };
+                      delete newErrors.projectName;
+                      return newErrors;
+                    });
+                  }
+                }}
+                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                  validationErrors.projectName ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                }`}
                 placeholder="Enter project name"
               />
+              {validationErrors.projectName && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors.projectName}</p>
+              )}
             </div>
 
             <div>

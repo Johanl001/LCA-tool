@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme, getThemeColors } from '../contexts/ThemeContext';
+import authService from '../utils/authService';
 import { 
   BarChart3, 
   TrendingUp, 
@@ -65,21 +66,34 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
   const fetchProjects = async () => {
     try {
-      const token = localStorage.getItem('lca_token');
-      const response = await fetch('http://localhost:5000/api/process/all', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      // Use authentication service for secure API calls
+      const response = await authService.makeAuthenticatedRequest(
+        'http://localhost:5000/api/process/all'
+      );
 
       if (response.ok) {
         const data = await response.json();
         setProjects(data);
         calculateStats(data);
+        console.log(`Successfully loaded ${data.length} projects`);
+      } else {
+        console.error('Failed to fetch projects:', response.status, response.statusText);
+        setProjects([]);
       }
     } catch (error) {
       console.error('Error fetching projects:', error);
+      
+      // Handle authentication errors
+      if (error instanceof Error) {
+        if (error.message.includes('No valid authentication token')) {
+          console.log('No valid token - user needs to login');
+          authService.redirectToLogin();
+        } else if (error.message.includes('fetch')) {
+          console.error('Network error - server may be down');
+        }
+      }
+      
+      setProjects([]);
     } finally {
       setLoading(false);
     }
@@ -342,7 +356,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       </div>
 
       {/* Bottom Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Energy Sources */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
@@ -359,27 +373,74 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
           </div>
         </div>
 
-        {/* Recent Projects */}
+        {/* Recent Projects with Detailed Information */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Recent Projects
-          </h3>
-          <div className="space-y-4">
-            {projects.slice(0, 5).map((project, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900 text-sm">
-                    {project.projectName || 'Unnamed Project'}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {new Date(project.timestamp).toLocaleDateString()}
-                  </p>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Project History
+            </h3>
+            <span className="text-sm text-gray-500">{projects.length} total projects</span>
+          </div>
+          <div className="space-y-4 max-h-96 overflow-y-auto">
+            {projects.slice(0, 10).map((project, index) => (
+              <div key={index} className="border border-gray-200 p-4 rounded-lg hover:bg-gray-50 transition-colors">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <h4 className="font-medium text-gray-900 text-sm mb-1">
+                      {project.projectName || 'Unnamed Project'}
+                    </h4>
+                    <div className="flex items-center space-x-4 text-xs text-gray-500">
+                      <span>{new Date(project.timestamp).toLocaleDateString()}</span>
+                      <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full">
+                        {project.overallData?.metalType || 'Unknown'}
+                      </span>
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
+                        {project.overallData?.productionRoute || 'Primary'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right ml-4">
+                    <p className={`text-lg font-bold ${colors.textSecondary}`}>
+                      {project.sustainabilityScore || 0}%
+                    </p>
+                    <p className="text-xs text-gray-500">Sustainability</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className={`text-sm font-medium ${colors.textSecondary}`}>
-                    {project.sustainabilityScore || 0}%
-                  </p>
-                  <p className="text-xs text-gray-500">Score</p>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                  <div className="text-center p-2 bg-green-50 rounded">
+                    <p className="font-medium text-green-700">{project.circularScore || 0}%</p>
+                    <p className="text-green-600">Circular</p>
+                  </div>
+                  <div className="text-center p-2 bg-orange-50 rounded">
+                    <p className="font-medium text-orange-700">{project.linearScore || 0}%</p>
+                    <p className="text-orange-600">Linear</p>
+                  </div>
+                  <div className="text-center p-2 bg-blue-50 rounded">
+                    <p className="font-medium text-blue-700">
+                      {project.stages?.reduce((sum: number, stage: any) => sum + (stage.energyUsage || 0), 0).toFixed(1) || '0.0'} GJ
+                    </p>
+                    <p className="text-blue-600">Energy</p>
+                  </div>
+                  <div className="text-center p-2 bg-purple-50 rounded">
+                    <p className="font-medium text-purple-700">
+                      {project.stages?.reduce((sum: number, stage: any) => sum + (stage.waterUsage || 0), 0).toFixed(1) || '0.0'} m³
+                    </p>
+                    <p className="text-purple-600">Water</p>
+                  </div>
+                </div>
+                
+                <div className="mt-3 flex items-center justify-between">
+                  <div className="flex items-center space-x-3 text-xs text-gray-500">
+                    <span>{project.stages?.length || 0} stages</span>
+                    <span>•</span>
+                    <span>{project.overallData?.region || 'Unknown region'}</span>
+                  </div>
+                  <div className="flex space-x-2">
+                    <a href="/reports" className="text-green-600 hover:text-green-800 text-xs font-medium">
+                      Generate Report
+                    </a>
+                  </div>
                 </div>
               </div>
             ))}
@@ -387,10 +448,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
               <div className="text-center py-8">
                 <Activity className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                 <p className="text-gray-500 mb-4">No projects yet</p>
-                <button className={`inline-flex items-center px-4 py-2 ${theme === 'sunset' ? 'bg-sunset-600 hover:bg-sunset-700' : 'bg-adventure-600 hover:bg-adventure-700'} text-white text-sm font-medium rounded-lg transition-colors`}>
+                <p className="text-sm text-gray-400 mb-4">Create your first LCA project to start tracking environmental impacts</p>
+                <a href="/submit" className={`inline-flex items-center px-4 py-2 ${theme === 'sunset' ? 'bg-sunset-600 hover:bg-sunset-700' : 'bg-adventure-600 hover:bg-adventure-700'} text-white text-sm font-medium rounded-lg transition-colors`}>
                   <Plus className="h-4 w-4 mr-2" />
                   Create Project
-                </button>
+                </a>
               </div>
             )}
           </div>
@@ -402,18 +464,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             Quick Actions
           </h3>
           <div className="space-y-3">
-            <button className={`w-full flex items-center p-3 ${theme === 'sunset' ? 'bg-sunset-50 text-sunset-700 hover:bg-sunset-100' : 'bg-adventure-50 text-adventure-700 hover:bg-adventure-100'} rounded-lg transition-colors`}>
+            <a href="/submit" className={`w-full flex items-center p-3 ${theme === 'sunset' ? 'bg-sunset-50 text-sunset-700 hover:bg-sunset-100' : 'bg-adventure-50 text-adventure-700 hover:bg-adventure-100'} rounded-lg transition-colors`}>
               <Plus className="h-5 w-5 mr-3" />
               New LCA Project
-            </button>
-            <button className={`w-full flex items-center p-3 ${theme === 'sunset' ? 'bg-sunsetRed-50 text-sunsetRed-700 hover:bg-sunsetRed-100' : 'bg-adventureGreen-50 text-adventureGreen-700 hover:bg-adventureGreen-100'} rounded-lg transition-colors`}>
+            </a>
+            <a href="/reports" className={`w-full flex items-center p-3 ${theme === 'sunset' ? 'bg-sunsetRed-50 text-sunsetRed-700 hover:bg-sunsetRed-100' : 'bg-adventureGreen-50 text-adventureGreen-700 hover:bg-adventureGreen-100'} rounded-lg transition-colors`}>
               <BarChart3 className="h-5 w-5 mr-3" />
               View Reports
-            </button>
-            <button className={`w-full flex items-center p-3 ${theme === 'sunset' ? 'bg-sunsetGold-50 text-sunsetGold-700 hover:bg-sunsetGold-100' : 'bg-adventureBrown-50 text-adventureBrown-700 hover:bg-adventureBrown-100'} rounded-lg transition-colors`}>
+            </a>
+            <a href="/simulation" className={`w-full flex items-center p-3 ${theme === 'sunset' ? 'bg-sunsetGold-50 text-sunsetGold-700 hover:bg-sunsetGold-100' : 'bg-adventureBrown-50 text-adventureBrown-700 hover:bg-adventureBrown-100'} rounded-lg transition-colors`}>
               <Activity className="h-5 w-5 mr-3" />
               Run Simulation
-            </button>
+            </a>
           </div>
         </div>
       </div>

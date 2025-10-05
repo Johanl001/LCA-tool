@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
+import authService from './utils/authService';
 import Navbar from './components/Navbar';
 import Dashboard from './components/Dashboard';
 import SubmitProcess from './components/SubmitProcess';
@@ -11,6 +12,7 @@ import CompareProjects from './components/CompareProjects';
 import UserProfile from './components/UserProfile';
 import Login from './components/Login';
 import Register from './components/Register';
+import AuthStatus from './components/AuthStatus';
 
 interface User {
   id: string;
@@ -24,31 +26,54 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing token
-    const token = localStorage.getItem('lca_token');
-    const userData = localStorage.getItem('lca_user');
-    
-    if (token && userData) {
+    // Check authentication status using the auth service
+    const checkAuthStatus = async () => {
       try {
-        setUser(JSON.parse(userData));
+        if (authService.isAuthenticated()) {
+          const currentUser = authService.getCurrentUser();
+          if (currentUser) {
+            setUser(currentUser);
+            console.log('User authenticated:', currentUser.name);
+          } else {
+            console.log('No valid user data found');
+            authService.clearAuthData();
+          }
+        } else {
+          console.log('User not authenticated');
+          authService.clearAuthData();
+        }
       } catch (error) {
-        localStorage.removeItem('lca_token');
-        localStorage.removeItem('lca_user');
+        console.error('Auth check error:', error);
+        authService.clearAuthData();
+      } finally {
+        setLoading(false);
       }
-    }
-    setLoading(false);
+    };
+    
+    checkAuthStatus();
   }, []);
 
-  const handleLogin = (userData: User, token: string) => {
+  const handleLogin = (userData: User, token: string, refreshToken?: string) => {
     setUser(userData);
     localStorage.setItem('lca_token', token);
+    if (refreshToken) {
+      localStorage.setItem('lca_refresh_token', refreshToken);
+    }
     localStorage.setItem('lca_user', JSON.stringify(userData));
+    console.log('User logged in successfully:', userData.name);
   };
 
-  const handleLogout = () => {
-    setUser(null);
-    localStorage.removeItem('lca_token');
-    localStorage.removeItem('lca_user');
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+      setUser(null);
+      console.log('User logged out successfully');
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Clear local data even if server logout fails
+      authService.clearAuthData();
+      setUser(null);
+    }
   };
 
   if (loading) {
@@ -96,17 +121,23 @@ function App() {
             </Routes>
           </div>
         </div>
-       <footer className="bg-gray-100 text-gray-700 text-center py-6 mt-auto border-t border-gray-200">
-  <div className="mb-2">&copy; {new Date().getFullYear()} Team StrawHats. All rights reserved.</div>
-  <div className="flex justify-center gap-4 mb-2">
-    <a href="mailto:contact@team.com" className="hover:text-gray-900">strawhats@gmail.com</a>
-    <a href="/privacy" className="hover:text-gray-900">Privacy Policy</a>
-    <a href="/terms" className="hover:text-gray-900">Terms</a>
-  </div>
-  
-  <div className="mt-2 text-sm text-gray-500">v1.0.0</div>
-</footer>
-
+        
+        {/* Authentication Status Monitor */}
+        <AuthStatus onAuthError={() => {
+          setUser(null);
+          authService.redirectToLogin();
+        }} />
+        
+        <footer className="bg-gray-100 text-gray-700 text-center py-6 mt-auto border-t border-gray-200">
+          <div className="mb-2">&copy; {new Date().getFullYear()} Team StrawHats. All rights reserved.</div>
+          <div className="flex justify-center gap-4 mb-2">
+            <a href="mailto:contact@team.com" className="hover:text-gray-900">strawhats@gmail.com</a>
+            <a href="/privacy" className="hover:text-gray-900">Privacy Policy</a>
+            <a href="/terms" className="hover:text-gray-900">Terms</a>
+          </div>
+          
+          <div className="mt-2 text-sm text-gray-500">v1.0.0</div>
+        </footer>
       </Router>
     </ThemeProvider>
   );
